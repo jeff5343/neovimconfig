@@ -83,6 +83,9 @@ vim.o.confirm = true
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
 
+-- Write
+vim.keymap.set('n', '<leader>w', '<cmd>w<CR>', { desc = '[W]rite to current file' })
+
 -- Clear highlights on search when pressing <Esc> in normal mode
 --  See `:help hlsearch`
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
@@ -98,12 +101,6 @@ vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagn
 -- or just use <C-\><C-n> to exit terminal mode
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
 
--- TIP: Disable arrow keys in normal mode
--- vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
--- vim.keymap.set('n', '<right>', '<cmd>echo "Use l to move!!"<CR>')
--- vim.keymap.set('n', '<up>', '<cmd>echo "Use k to move!!"<CR>')
--- vim.keymap.set('n', '<down>', '<cmd>echo "Use j to move!!"<CR>')
-
 -- Keybinds to make split navigation easier.
 --  Use CTRL+<hjkl> to switch between windows
 --
@@ -112,12 +109,6 @@ vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left wind
 vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
 vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
 vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
-
--- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
--- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
--- vim.keymap.set("n", "<C-S-l>", "<C-w>L", { desc = "Move window to the right" })
--- vim.keymap.set("n", "<C-S-j>", "<C-w>J", { desc = "Move window to the lower" })
--- vim.keymap.set("n", "<C-S-k>", "<C-w>K", { desc = "Move window to the upper" })
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
@@ -161,14 +152,12 @@ rtp:prepend(lazypath)
 -- NOTE: Here is where you install your plugins.
 require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
-  'NMAC427/guess-indent.nvim', -- Detect tabstop and shiftwidth automatically
 
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
   -- keys can be used to configure plugin behavior/loading/etc.
   --
   -- Use `opts = {}` to automatically pass options to a plugin's `setup()` function, forcing the plugin to be loaded.
-  --
 
   -- Alternatively, use `config = function() ... end` for full control over the configuration.
   -- If you prefer to call `setup` explicitly, use:
@@ -181,9 +170,6 @@ require('lazy').setup({
   --        end,
   --    }
   --
-  -- Here is a more advanced example where we pass configuration
-  -- options to `gitsigns.nvim`.
-  --
   -- See `:help gitsigns` to understand what the configuration keys do
   { -- Adds git related signs to the gutter, as well as utilities for managing changes
     'lewis6991/gitsigns.nvim',
@@ -195,6 +181,14 @@ require('lazy').setup({
         topdelete = { text = '‾' },
         changedelete = { text = '~' },
       },
+    },
+  },
+
+  { -- Automatic indentation style detection
+    'NMAC427/guess-indent.nvim',
+    opts = {
+      auto_cmd = true, -- Set to false to disable automatic execution
+      filetype_exclude = {},
     },
   },
 
@@ -280,6 +274,13 @@ require('lazy').setup({
       require('telescope').setup {
         -- You can put your default mappings / updates / etc. in here
         --  All the info you're looking for is in `:help telescope.setup()`
+        defaults = {
+          file_ignore_patterns = {
+            'build',
+            'node_modules',
+            'env',
+          },
+        },
         extensions = {
           ['ui-select'] = {
             require('telescope.themes').get_dropdown(),
@@ -357,7 +358,41 @@ require('lazy').setup({
       { 'j-hui/fidget.nvim', opts = {} },
 
       -- Allows extra capabilities provided by blink.cmp
-      'saghen/blink.cmp',
+      {
+        'saghen/blink.cmp',
+        opts = {
+          keymap = {
+            ['<CR>'] = { 'select_and_accept', 'fallback' },
+            ['<C-p>'] = { 'select_prev', 'fallback_to_mappings' },
+            ['<C-n>'] = { 'select_next', 'fallback_to_mappings' },
+            ['<Tab>'] = {
+              function(cmp)
+                if cmp.snippet_active() then
+                  return cmp.accept()
+                else
+                  return cmp.select_and_accept()
+                end
+              end,
+              'snippet_forward',
+              'fallback',
+            },
+            ['<S-Tab>'] = { 'snippet_backward', 'fallback' },
+            --   ['<Tab>'] = { 'select_next', 'snippet_forward', 'fallback' },
+            --   ['<S-Tab>'] = { 'select_prev', 'snippet_backward', 'fallback' },
+          },
+
+          completion = {
+            menu = {
+              draw = {
+                columns = {
+                  { 'label', 'label_description', gap = 1 },
+                  { 'kind_icon', 'kind' },
+                },
+              },
+            },
+          },
+        },
+      },
     },
     config = function()
       -- Brief aside: **What is LSP?**
@@ -417,10 +452,6 @@ require('lazy').setup({
           --  Useful when your language has ways of declaring types without an actual implementation.
           map('gsi', require('telescope.builtin').lsp_implementations, '[S]earch [I]mplementation')
 
-          -- Jump to the implementation of the word under your cursor.
-          --  Useful when your language has ways of declaring types without an actual implementation.
-          map('grh', vim.lsp.buf.hover, '[R]eveal [H]over')
-
           -- Jump to the definition of the word under your cursor.
           --  This is where a variable was first declared, or where a function is defined, etc.
           --  To jump back, press <C-t>.
@@ -442,6 +473,8 @@ require('lazy').setup({
           --  Useful when you're not sure what type a variable is and you want to see
           --  the definition of its *type*, not where it was *defined*.
           map('grt', require('telescope.builtin').lsp_type_definitions, '[G]oto [T]ype Definition')
+
+          -- K is mapped to vim.lsp.hover!
 
           -- This function resolves a difference between neovim nightly (version 0.11) and stable (version 0.10)
           ---@param client vim.lsp.Client
@@ -628,6 +661,16 @@ require('lazy').setup({
       formatters_by_ft = {
         lua = { 'stylua' },
         clangd = { 'clang-format' },
+        javascript = { 'prettier' },
+        typescript = { 'prettier' },
+        javascriptreact = { 'prettier' },
+        typescriptreact = { 'prettier' },
+        css = { 'prettier' },
+        html = { 'prettier' },
+        json = { 'prettier' },
+        yaml = { 'prettier' },
+        markdown = { 'prettier' },
+        graphql = { 'prettier' },
       },
     },
   },
@@ -650,6 +693,33 @@ require('lazy').setup({
           end
           return 'make install_jsregexp'
         end)(),
+        config = function()
+          -- from https://github.com/MariaSolOs/dotfiles/blob/e9eb1f8e027840f872e69e00e082e2be10237499/.config/nvim/lua/plugins/nvim-cmp.lua
+          local luasnip = require 'luasnip'
+
+          -- HACK: Cancel the snippet session when leaving insert mode
+          vim.api.nvim_create_autocmd('ModeChanged', {
+            group = vim.api.nvim_create_augroup('UnlinkSnippetOnModeChange', { clear = true }),
+            pattern = { 'i:n' },
+            callback = function(event)
+              local node = luasnip.session.current_nodes[event.buf]
+
+              if not node then
+                return
+              end
+              vim.defer_fn(function()
+                if vim.api.nvim_get_mode().mode == 'n' then
+                  local snip = node.parent
+
+                  if node.indx and #snip.nodes - node.indx <= 2 then
+                    -- vim.notify 'unlinked!'
+                    luasnip.unlink_current()
+                  end
+                end
+              end, 50)
+            end,
+          })
+        end,
         dependencies = {
           -- `friendly-snippets` contains a variety of premade snippets.
           --    See the README about individual language/framework/plugin snippets:
@@ -789,13 +859,29 @@ require('lazy').setup({
       --  Check out: https://github.com/echasnovski/mini.nvim
     end,
   },
+
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
     build = ':TSUpdate',
     main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
     opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
+      ensure_installed = {
+        'bash',
+        'c',
+        'diff',
+        'html',
+        'lua',
+        'luadoc',
+        'markdown',
+        'markdown_inline',
+        'query',
+        'vim',
+        'vimdoc',
+        'html',
+        'javascript',
+        'typescript',
+      },
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {
@@ -815,6 +901,58 @@ require('lazy').setup({
     --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
   },
 
+  { -- Harpoon
+    'ThePrimeagen/harpoon',
+    branch = 'harpoon2',
+    dependencies = { 'nvim-lua/plenary.nvim' },
+    config = function(_, opts)
+      local harpoon = require 'harpoon'
+
+      harpoon:setup()
+
+      vim.keymap.set('n', '<leader>a', function()
+        harpoon:list():add()
+      end)
+      vim.keymap.set('n', '<C-d>', function()
+        harpoon.ui:toggle_quick_menu(harpoon:list())
+      end)
+
+      vim.keymap.set('n', '<C-n>', function()
+        harpoon:list():select(1)
+      end)
+      vim.keymap.set('n', '<C-m>', function()
+        harpoon:list():select(2)
+      end)
+      vim.keymap.set('n', '<C-,>', function()
+        harpoon:list():select(3)
+      end)
+      vim.keymap.set('n', '<C-.>', function()
+        harpoon:list():select(4)
+      end)
+
+      -- Toggle previous & next buffers stored within Harpoon list
+      vim.keymap.set('n', '<C-S-P>', function()
+        harpoon:list():prev()
+      end)
+      vim.keymap.set('n', '<C-S-N>', function()
+        harpoon:list():next()
+      end)
+    end,
+  },
+
+  { -- Leetcode Nvim
+    'kawre/leetcode.nvim',
+    build = ':TSUpdate html', -- if you have `nvim-treesitter` installed
+    dependencies = {
+      -- include a picker of your choice, see picker section for more details
+      'nvim-lua/plenary.nvim',
+      'MunifTanjim/nui.nvim',
+    },
+    opts = {
+      -- configuration goes here
+    },
+  },
+
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
   -- init.lua. If you want these files, they are in the repository, so you can just download them and
   -- place them in the correct locations.
@@ -825,7 +963,7 @@ require('lazy').setup({
   --  Uncomment any of the lines below to enable them (you will need to restart nvim).
   --
   -- require 'kickstart.plugins.debug',
-  -- require 'kickstart.plugins.indent_line',
+  require 'kickstart.plugins.indent_line',
   -- require 'kickstart.plugins.lint',
   -- require 'kickstart.plugins.autopairs',
   -- require 'kickstart.plugins.neo-tree',
