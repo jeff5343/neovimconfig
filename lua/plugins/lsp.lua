@@ -25,42 +25,8 @@ return {
       -- Useful status updates for LSP.
       { 'j-hui/fidget.nvim', opts = {} },
 
-      -- Allows extra capabilities provided by blink.cmp
-      {
-        'saghen/blink.cmp',
-        opts = {
-          keymap = {
-            ['<CR>'] = { 'select_and_accept', 'fallback' },
-            ['<C-p>'] = { 'select_prev', 'fallback_to_mappings' },
-            ['<C-n>'] = { 'select_next', 'fallback_to_mappings' },
-            ['<Tab>'] = {
-              function(cmp)
-                if cmp.snippet_active() then
-                  return cmp.accept()
-                else
-                  return cmp.select_and_accept()
-                end
-              end,
-              'snippet_forward',
-              'fallback',
-            },
-            ['<S-Tab>'] = { 'snippet_backward', 'fallback' },
-            --   ['<Tab>'] = { 'select_next', 'snippet_forward', 'fallback' },
-            --   ['<S-Tab>'] = { 'select_prev', 'snippet_backward', 'fallback' },
-          },
-
-          completion = {
-            menu = {
-              draw = {
-                columns = {
-                  { 'label', 'label_description', gap = 1 },
-                  { 'kind_icon', 'kind' },
-                },
-              },
-            },
-          },
-        },
-      },
+      -- Completion engine capabilities
+      'saghen/blink.cmp',
     },
     config = function()
       -- Brief aside: **What is LSP?**
@@ -328,7 +294,8 @@ return {
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
-        clangd = { 'clang-format' },
+        c = { 'clang-format' },
+        cpp = { 'clang-format' },
         javascript = { 'prettier' },
         typescript = { 'prettier' },
         javascriptreact = { 'prettier' },
@@ -412,14 +379,13 @@ return {
           end
 
           local function clear_stale_snippet_if_needed(bufnr)
-            local ctx = snippet_context[bufnr]
+            local range = snippet_context[bufnr]
             local node = luasnip.session.current_nodes[bufnr]
-            if not ctx or not node then
+            if not range or not node then
               return
             end
 
-            local range = get_snippet_range(node)
-            local in_context = range and cursor_in_range(range)
+            local in_context = cursor_in_range(range)
             if not in_context then
               luasnip.unlink_current()
               snippet_context[bufnr] = nil
@@ -443,10 +409,7 @@ return {
                 return
               end
 
-              snippet_context[event.buf] = {
-                changedtick = vim.api.nvim_buf_get_changedtick(event.buf),
-                range = get_snippet_range(node),
-              }
+              snippet_context[event.buf] = get_snippet_range(node)
             end,
           })
 
@@ -499,6 +462,21 @@ return {
         --
         -- See :h blink-cmp-config-keymap for defining your own keymap
         preset = 'default',
+        ['<CR>'] = { 'select_and_accept', 'fallback' },
+        ['<C-p>'] = { 'select_prev', 'fallback_to_mappings' },
+        ['<C-n>'] = { 'select_next', 'fallback_to_mappings' },
+        ['<Tab>'] = {
+          function(cmp)
+            if cmp.snippet_active() then
+              return cmp.accept()
+            else
+              return cmp.select_and_accept()
+            end
+          end,
+          'snippet_forward',
+          'fallback',
+        },
+        ['<S-Tab>'] = { 'snippet_backward', 'fallback' },
 
         -- For more advanced Luasnip keymaps (e.g. selecting choice nodes, expansion) see:
         --    https://github.com/L3MON4D3/LuaSnip?tab=readme-ov-file#keymaps
