@@ -83,6 +83,9 @@ vim.o.confirm = true
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
 
+-- vimwiki prevent `-` binding
+vim.keymap.set('n', '<Plug>VimwikiRemoveHeaderLevel', '<Nop>')
+
 -- Write
 vim.keymap.set('n', '<leader>w', '<cmd>w<CR>', { desc = '[W]rite to current file' })
 
@@ -109,6 +112,10 @@ vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to the left wind
 vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
 vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
 vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
+
+-- QuickFix commands
+vim.keymap.set('n', '<A-n>', '<cmd>cnext<CR>', { desc = 'Quick fix next' })
+vim.keymap.set('n', '<A-m>', '<cmd>cprev<CR>', { desc = 'Quick fix previous' })
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
@@ -278,7 +285,6 @@ require('lazy').setup({
           file_ignore_patterns = {
             'build',
             'node_modules',
-            'env',
           },
         },
         extensions = {
@@ -296,7 +302,9 @@ require('lazy').setup({
       local builtin = require 'telescope.builtin'
       vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
       vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
-      vim.keymap.set('n', '<leader>sf', builtin.find_files, { desc = '[S]earch [F]iles' })
+      vim.keymap.set('n', '<leader>sf', function()
+        builtin.find_files { hidden = true, follow = true }
+      end, { desc = '[S]earch [F]iles' })
       vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
       vim.keymap.set('n', '<leader>sw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
       vim.keymap.set('n', '<leader>sg', builtin.live_grep, { desc = '[S]earch by [G]rep' })
@@ -671,6 +679,7 @@ require('lazy').setup({
         yaml = { 'prettier' },
         markdown = { 'prettier' },
         graphql = { 'prettier' },
+        python = { 'black' },
       },
     },
   },
@@ -711,7 +720,8 @@ require('lazy').setup({
                 if vim.api.nvim_get_mode().mode == 'n' then
                   local snip = node.parent
 
-                  if node.indx and #snip.nodes - node.indx <= 2 then
+                  if node.indx then
+                    -- and #snip.nodes - node.indx <= 2 then
                     -- vim.notify 'unlinked!'
                     luasnip.unlink_current()
                   end
@@ -862,43 +872,15 @@ require('lazy').setup({
 
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
+    lazy = false,
     build = ':TSUpdate',
-    main = 'nvim-treesitter.configs', -- Sets main module to use for opts
-    -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
-    opts = {
-      ensure_installed = {
-        'bash',
-        'c',
-        'diff',
-        'html',
-        'lua',
-        'luadoc',
-        'markdown',
-        'markdown_inline',
-        'query',
-        'vim',
-        'vimdoc',
-        'html',
-        'javascript',
-        'typescript',
-      },
-      -- Autoinstall languages that are not installed
-      auto_install = true,
-      highlight = {
-        enable = true,
-        -- Some languages depend on vim's regex highlighting system (such as Ruby) for indent rules.
-        --  If you are experiencing weird indenting issues, add the language to
-        --  the list of additional_vim_regex_highlighting and disabled languages for indent.
-        additional_vim_regex_highlighting = { 'ruby', 'cpp' },
-      },
-      indent = { enable = true, disable = { 'ruby', 'cpp' } },
-    },
-    -- There are additional nvim-treesitter modules that you can use to interact
-    -- with nvim-treesitter. You should go explore a few and see what interests you:
-    --
-    --    - Incremental selection: Included, see `:help nvim-treesitter-incremental-selection-mod`
-    --    - Show your current context: https://github.com/nvim-treesitter/nvim-treesitter-context
-    --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
+    config = function()
+      require('nvim-treesitter').setup {
+        highlight = {
+          enabled = true,
+        },
+      }
+    end,
   },
 
   { -- Harpoon
@@ -942,7 +924,7 @@ require('lazy').setup({
 
   { -- Leetcode Nvim
     'kawre/leetcode.nvim',
-    build = ':TSUpdate html', -- if you have `nvim-treesitter` installed
+    -- build = ':TSUpdate html', -- if you have `nvim-treesitter` installed
     dependencies = {
       -- include a picker of your choice, see picker section for more details
       'nvim-lua/plenary.nvim',
@@ -951,6 +933,61 @@ require('lazy').setup({
     opts = {
       -- configuration goes here
     },
+  },
+
+  {
+    'stevearc/oil.nvim',
+    ---@module 'oil'
+    ---@type oil.SetupOpts
+    -- Optional dependencies
+    -- dependencies = { { 'nvim-mini/mini.icons', opts = {} } },
+    dependencies = { 'nvim-tree/nvim-web-devicons' }, -- use if you prefer nvim-web-devicons
+    config = function()
+      require('oil').setup {
+        columns = { 'icon' },
+        keymaps = {
+          ['<C-h>'] = false,
+          ['<C-l>'] = false,
+        },
+        view_options = {
+          -- Show files and directories that start with "."
+          show_hidden = true,
+        },
+      }
+
+      vim.keymap.set('n', '-', '<cmd>Oil<CR>', { desc = 'Open parent directory' })
+    end,
+
+    -- Lazy loading is not recommended because it is very tricky to make it work correctly in all situations.
+    lazy = false,
+  },
+
+  {
+    'lervag/vimtex',
+    lazy = false, -- we don't want to lazy load VimTeX
+    -- tag = "v2.15", -- uncomment to pin to a specific release
+    init = function()
+      -- VimTeX configuration goes here, e.g.
+      vim.g.vimtex_view_method = 'zathura'
+    end,
+  },
+
+  {
+    'greggh/claude-code.nvim',
+    dependencies = {
+      'nvim-lua/plenary.nvim', -- Required for git operations
+    },
+    config = function()
+      require('claude-code').setup()
+    end,
+  },
+
+  {
+    'vimwiki/vimwiki',
+  },
+
+  {
+    'sindrets/diffview.nvim',
   },
 
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
