@@ -122,6 +122,19 @@ return {
 
   {
     'sindrets/diffview.nvim',
+    keys = {
+      { '<leader>do', '<cmd>DiffviewOpen<CR>', desc = '[D]iffview [O]pen' },
+      { '<leader>dc', '<cmd>DiffviewClose<CR>', desc = '[D]iffview [C]lose' },
+      { '<leader>dh', '<cmd>DiffviewFileHistory %<CR>', desc = '[D]iffview file [H]istory' },
+    },
+    opts = {
+      enhanced_diff_hl = true,
+      view = {
+        default = {
+          layout = 'diff2_horizontal',
+        },
+      },
+    },
   },
 
 }
