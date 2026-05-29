@@ -365,28 +365,96 @@ return {
         config = function()
           -- from https://github.com/MariaSolOs/dotfiles/blob/e9eb1f8e027840f872e69e00e082e2be10237499/.config/nvim/lua/plugins/nvim-cmp.lua
           local luasnip = require 'luasnip'
+          local snippet_context = {}
 
-          -- HACK: Cancel the snippet session when leaving insert mode
+          -- Keep snippet continuity if you return inside the same snippet,
+          -- but clear stale snippet state when returning elsewhere.
+          local function get_snippet_range(node)
+            local snip = node and node.parent
+            local mark = snip and snip.mark
+            if not mark or type(mark.pos_begin_end) ~= 'function' then
+              return nil
+            end
+
+            local ok, start_pos, end_pos = pcall(mark.pos_begin_end, mark)
+            if not ok then
+              return nil
+            end
+            if type(start_pos) ~= 'table' or type(end_pos) ~= 'table' then
+              return nil
+            end
+
+            return { start_pos = start_pos, end_pos = end_pos }
+          end
+
+          local function cursor_in_range(range)
+            if not range then
+              return false
+            end
+
+            local cursor = vim.api.nvim_win_get_cursor(0)
+            local line = cursor[1] - 1
+            local col = cursor[2]
+            local s = range.start_pos
+            local e = range.end_pos
+
+            if line < s[1] or line > e[1] then
+              return false
+            end
+            if line == s[1] and col < s[2] then
+              return false
+            end
+            if line == e[1] and col > e[2] then
+              return false
+            end
+
+            return true
+          end
+
+          local function clear_stale_snippet_if_needed(bufnr)
+            local ctx = snippet_context[bufnr]
+            local node = luasnip.session.current_nodes[bufnr]
+            if not ctx or not node then
+              return
+            end
+
+            local range = get_snippet_range(node)
+            local in_context = range and cursor_in_range(range)
+            if not in_context then
+              luasnip.unlink_current()
+              snippet_context[bufnr] = nil
+            end
+          end
+
+          -- Built-in cleanup hooks help LuaSnip invalidate old jump-points.
+          luasnip.config.setup {
+            region_check_events = 'InsertEnter',
+            delete_check_events = 'TextChanged,InsertLeave',
+          }
+
+          -- Track active snippet context whenever leaving insert mode.
           vim.api.nvim_create_autocmd('ModeChanged', {
-            group = vim.api.nvim_create_augroup('UnlinkSnippetOnModeChange', { clear = true }),
+            group = vim.api.nvim_create_augroup('user-snippet-context', { clear = true }),
             pattern = { 'i:n' },
             callback = function(event)
               local node = luasnip.session.current_nodes[event.buf]
-
               if not node then
+                snippet_context[event.buf] = nil
                 return
               end
-              vim.defer_fn(function()
-                if vim.api.nvim_get_mode().mode == 'n' then
-                  local snip = node.parent
 
-                  if node.indx then
-                    -- and #snip.nodes - node.indx <= 2 then
-                    -- vim.notify 'unlinked!'
-                    luasnip.unlink_current()
-                  end
-                end
-              end, 50)
+              snippet_context[event.buf] = {
+                changedtick = vim.api.nvim_buf_get_changedtick(event.buf),
+                range = get_snippet_range(node),
+              }
+            end,
+          })
+
+          -- On returning to insert mode, clear stale snippets if cursor moved out of context.
+          vim.api.nvim_create_autocmd('InsertEnter', {
+            group = vim.api.nvim_create_augroup('user-snippet-resume-check', { clear = true }),
+            callback = function(event)
+              clear_stale_snippet_if_needed(event.buf)
             end,
           })
         end,

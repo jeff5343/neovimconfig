@@ -1,4 +1,22 @@
 return {
+  {
+    'rmagatti/auto-session',
+    lazy = false,
+    opts = {
+      auto_restore = true,
+      auto_save = true,
+      auto_create = true,
+      git_use_branch_name = false,
+      suppressed_dirs = { '~/', '~/Downloads', '/' },
+      cwd_change_handling = false,
+    },
+    keys = {
+      { '<leader>ws', '<cmd>AutoSession save<CR>', desc = '[W]orkspace [S]ession save' },
+      { '<leader>wr', '<cmd>AutoSession restore<CR>', desc = '[W]orkspace [R]estore session' },
+      { '<leader>wd', '<cmd>AutoSession delete<CR>', desc = '[W]orkspace [D]elete session' },
+    },
+  },
+
   { -- Harpoon
     'ThePrimeagen/harpoon',
     branch = 'harpoon2',
